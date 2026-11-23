@@ -10,12 +10,12 @@
     <version>2.0.0</version>
     <packaging>jar</packaging>
 
-    <name>Plexus</name>
+    <name>t-plexus</name>
     <description>A symmetry-routed exact classifier — a router, not a network. Files every binary grid
         by what its shape is: bounding box, lattice (square or hex), a per-symmetry walk, mass and joins,
         then orientation, pose and corner, in two tries with exact counts. See the docs/ directory.
     </description>
-    <url>https://github.com/noxidog/Plexus</url>
+    <url>https://github.com/noxidog/t-plexus</url>
 
     <licenses>
         <license>
@@ -40,9 +40,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/noxidog/Plexus.git</connection>
-        <developerConnection>scm:git:https://github.com/noxidog/Plexus.git</developerConnection>
-        <url>https://github.com/noxidog/Plexus</url>
+        <connection>scm:git:https://github.com/noxidog/t-plexus.git</connection>
+        <developerConnection>scm:git:https://github.com/noxidog/t-plexus.git</developerConnection>
+        <url>https://github.com/noxidog/t-plexus</url>
     </scm>
 
     <properties>

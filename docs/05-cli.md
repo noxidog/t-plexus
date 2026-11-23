@@ -16,7 +16,7 @@ java -cp out org.tervel.plexus.cli.Main data/conservation-t-orbit-3x3.txt --latt
 `Main` reads the data file, trains a `Plexus` on it, prints one line with the example count, the frame, the lattices and the number of trie nodes, and opens a REPL:
 
 ```
-plexus: 2 example(s) in a 5x5 frame, lattices [SQUARE_4], 16 node(s)
+t-plexus: 2 example(s) in a 5x5 frame, lattices [SQUARE_4], 16 node(s)
 ```
 
 ```

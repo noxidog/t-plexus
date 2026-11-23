@@ -69,7 +69,6 @@ A review of the design and code. Breaking changes are marked **Breaking**.
 - A CI workflow (`.github/workflows/ci.yml`) runs `mvn verify` on every push and pull request.
 - The release profile no longer auto-publishes to Maven Central: a release is staged and published by hand.
 - The packaged jar names its main class, so `java -jar` runs the interpreter.
-- **Breaking:** the artifact is renamed from `io.github.noxidog:plexus` to `io.github.noxidog:t-plexus`. The old name collided with the Codehaus Plexus framework, which Maven itself is built on. Change the dependency's `artifactId` to `t-plexus`; the Java package is still `org.tervel.plexus`.
 
 ## 2.0.0
 

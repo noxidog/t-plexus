@@ -1,6 +1,6 @@
-# Plexus
+# t-plexus
 
-![Plexus](assets/plexus-logo.png)
+![t-plexus](assets/plexus-logo.png)
 
 **A symmetry-routed exact classifier — a router, not a network.**
 
@@ -46,13 +46,20 @@ plexus.slice(Slice.on(Root.D4).atLeast("short-axis mirror").label(1),
 
 ## Using it
 
-Maven (the artifact is built from this repository):
+Maven, from JitPack (the artifact is built from this repository):
 
 ```xml
+<repositories>
+  <repository>
+    <id>jitpack.io</id>
+    <url>https://jitpack.io</url>
+  </repository>
+</repositories>
+
 <dependency>
-  <groupId>io.github.noxidog</groupId>
+  <groupId>com.github.noxidog</groupId>
   <artifactId>t-plexus</artifactId>
-  <version>2.0.0</version>
+  <version>v2.0.1</version>
 </dependency>
 ```
 

@@ -88,7 +88,7 @@ public final class Main {
             System.exit(1);
             return;
         }
-        System.out.printf("plexus: %d example(s) in a %dx%d frame, lattices %s, %d node(s)%n",
+        System.out.printf("t-plexus: %d example(s) in a %dx%d frame, lattices %s, %d node(s)%n",
                 data.size(), rows, cols, plexus.lattices().stream().sorted().toList(), plexus.size());
         repl(plexus, data, rows, cols);
     }
