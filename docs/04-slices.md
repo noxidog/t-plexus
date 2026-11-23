@@ -48,7 +48,7 @@ By default every matching grid is an entry (`Per.PLACEMENT`). `Per.POSE` folds t
 
 ### 5.3 Constructive generation
 
-For a stand-in at a shape level (symmetry, mass, joins, extension), candidates are built, not searched for:
+For a stand-in at a shape level (symmetry, mass, joins), candidates are built, not searched for:
 
 1. Read the box and the symmetries already answered yes on the path.
 2. Group the box's cells into the orbits of those symmetries.
@@ -57,4 +57,6 @@ For a stand-in at a shape level (symmetry, mass, joins, extension), candidates a
 
 A one-mirror 2×3 node has 4 orbits, so 2⁴ fills instead of 2⁶; a fully symmetric 3×3 node has 3, so 2³ instead of 2⁹. For stand-ins at the trailing levels, the candidates are every pose and placement of the shapes stored under the node. On the hex root the candidates are all subsets of the s×s square input box, without the orbit step. A node whose enumeration would exceed 2²¹ is skipped and counted in `Slice.Result`: more than 21 orbits on the square root, or a box larger than 4×4 on the hex root.
 
-What a slice generates is exactly what reading answers for. The suite checks this on three 3×3 datasets, for every setting and both labels, against all 512 grids of the frame.
+What a slice lists is exactly what reading answers for, on frames of up to 16 cells. The suite checks this on three 3×3 datasets, for every setting and both labels, against all 512 grids of the frame. On a 4×4 frame it checks all 65,536 grids for the `PLACEMENT` and `EVERYTHING` settings, for both labels.
+
+By default, on a frame above 16 cells, a slice lists what its walk reaches, and that can omit grids a read answers. `.exhaustive(true)` reads every grid that passes the query's constraints, so the list is complete on frames of up to 30 cells, at one read per grid. The shipped 5×5 dataset `separable-path-fork-5x5` has 25 cells, so an unconstrained exhaustive slice reads about 33 million grids.

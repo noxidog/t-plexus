@@ -10,7 +10,7 @@
 
 ### 2.1 The bounding box
 
-One pass over the pixels gives the box of the non-zero cells: a square (h = w) or a rectangle. An empty grid has no box and gets the single key `empty`.
+One pass over the pixels gives the box of the filled cells: a square (h = w) or a rectangle. An empty grid has no box and gets the single key `empty`.
 
 The box caps the symmetry the shape can have. Any symmetry of a shape also maps its box onto itself, so it fixes the box's centre, and the centre is the only point the shape can be symmetric about. A rectangle allows at most D2 (rot180 and the two axis mirrors); a quarter turn or a diagonal mirror would turn an h × w box into w × h.
 
@@ -33,16 +33,16 @@ A shape lives on one of two lattices, and each has its own trie.
 
 The shift is one cell to one cell, nothing interpolated, so the input stays exact. The disk's 90° turn, `xx./xxx/.xx`, matches the other diagonal, shifts the other way, and lands on the same hexagon.
 
-**Lattices.** A router is built on a set of lattices, fixed for its life, because the neighbours are part of the key: they define `joins` and every self-extension primitive. `Lattice.SQUARE_4` (edge neighbours), `Lattice.SQUARE_8` (edge or corner neighbours, the king's move) and `Lattice.HEX_6` (the six neighbours of the sheared reading). A legal set holds exactly one square lattice, since rectangles always file on the square lattice and square joins must have one meaning, and optionally `HEX_6`; anything else throws `IllegalArgumentException`. The default is `SQUARE_4` + `HEX_6`.
+**Lattices.** A router is built on a set of lattices, fixed for its life, because the neighbours are part of the key: they define `joins`. `Lattice.SQUARE_4` (edge neighbours), `Lattice.SQUARE_8` (edge or corner neighbours, the king's move) and `Lattice.HEX_6` (the six neighbours of the sheared reading). A legal set holds exactly one square lattice, since rectangles always file on the square lattice and square joins must have one meaning, and optionally `HEX_6`; anything else throws `IllegalArgumentException`. The default is `SQUARE_4` alone; `HEX_6` is added only when the caller asks for it.
 
 ```java
-new Plexus(rows, cols)                                    // SQUARE_4 + HEX_6, self-extension on
+new Plexus(rows, cols)                                    // SQUARE_4 only
 new Plexus(rows, cols, Lattice.SQUARE_8)                  // square only, 8 neighbours
 new Plexus(rows, cols, Lattice.SQUARE_8, Lattice.HEX_6)   // 8-neighbour squares, hex still tried
-new Plexus(rows, cols, Set.of(Lattice.SQUARE_4), false)   // square only, self-extension off
+new Plexus(rows, cols, Set.of(Lattice.SQUARE_4))   // square only
 ```
 
-Without `HEX_6`, steps 2 and 3 are skipped for every square box: each shape stays on the square lattice, files under the D4 root, and the D6 root stays empty. The hex disk then reads as a square box with `rot180`, `diagMain` and `diagAnti`. `Descriptor.of(grid, rows, cols, lattices)` describes one grid the same way; every descriptor records the lattice that described it in `lattice()`.
+The default lattice set is the square lattice alone, so hex is tried only when the caller passes `HEX_6`: the grid alone cannot say whether its cells are hex cells. Without `HEX_6`, steps 2 and 3 are skipped for every square box: each shape stays on the square lattice, files under the D4 root, and the D6 root stays empty. The hex disk then reads as a square box with `rot180`, `diagMain` and `diagAnti`. `Descriptor.of(grid, rows, cols, lattices)` describes one grid the same way; every descriptor records the lattice that described it in `lattice()`.
 
 ### 2.3 The symmetry walk
 

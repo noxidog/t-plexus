@@ -1,12 +1,15 @@
 package org.tervel.plexus.cli;
 
-import org.tervel.plexus.Descriptor;
-import org.tervel.plexus.Extrapolate;
-import org.tervel.plexus.Lattice;
-import org.tervel.plexus.Plexus;
-import org.tervel.plexus.Root;
-import org.tervel.plexus.Slice;
-import org.tervel.plexus.Verdict;
+import org.tervel.plexus.descriptor.*;
+import org.tervel.plexus.router.*;
+
+import org.tervel.plexus.descriptor.Descriptor;
+import org.tervel.plexus.router.Extrapolate;
+import org.tervel.plexus.descriptor.Lattice;
+import org.tervel.plexus.router.Plexus;
+import org.tervel.plexus.descriptor.Root;
+import org.tervel.plexus.router.Slice;
+import org.tervel.plexus.router.Verdict;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -33,9 +36,10 @@ import java.util.Scanner;
  *   [q] quit
  * </pre>
  *
- * <p>A data file starts with an {@code nxm} line, then records of {@code n} grid rows ({@code x} filled, anything
- * else empty) each followed by a {@code 0} or {@code 1} label. Only {@code n} is read from the first line; the
- * column count is the first record's cell count divided by {@code n}.
+ * <p>A data file starts with an {@code nxm} line (rows by columns), then records of {@code n} rows of {@code m}
+ * cells ({@code x} filled, {@code .} or {@code _} empty) each followed by a {@code 0} or {@code 1} label. Any other cell, a row of
+ * the wrong width, a label that is not 0 or 1, or a record cut short is an error that names its line; nothing is
+ * trained from a file that does not read exactly.
  *
  * <p>{@code --lattice} picks the router's lattices, comma separated: {@code square4}, {@code square8},
  * {@code hex6} (default {@code square4,hex6}). Exactly one square lattice; hex is optional.
@@ -45,7 +49,7 @@ public final class Main {
     /** One labelled example. */
     public record Example(int[] grid, int label) { }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8));
         String file = null;
         var lattices = Lattice.DEFAULT;
@@ -58,20 +62,34 @@ public final class Main {
             }
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            file = null;
+            System.exit(2);
         }
         if (file == null) {
             System.err.println("usage: Main <data-file> [--lattice square4,hex6 | square8 | square8,hex6 | square4]");
-            return;
+            System.exit(2);
         }
         final var path = Path.of(file);
-        final var rows = Integer.parseInt(Files.readAllLines(path).get(0).split("x")[0].trim());
-        final var data = parse(path);
-        final var cols = data.isEmpty() ? 0 : data.get(0).grid().length / Math.max(1, rows);
-        final var plexus = new Plexus(rows, cols, lattices, true);
-        plexus.fit(data.stream().map(Example::grid).toList(), data.stream().map(Example::label).toList());
-        System.out.printf("plexus: %d example(s) in a %dx%d frame, lattices %s, %d node(s), extensions %s%n",
-                data.size(), rows, cols, plexus.lattices().stream().sorted().toList(), plexus.size(), plexus.extensions().isEmpty() ? "none" : plexus.extensions());
+        final List<Example> data;
+        final int rows, cols;
+        final Plexus plexus;
+        try {
+            final var dims = dimensions(path);
+            rows = dims[0];
+            cols = dims[1];
+            data = parse(path);
+            plexus = new Plexus(rows, cols, lattices);
+            plexus.fit(data.stream().map(Example::grid).toList(), data.stream().map(Example::label).toList());
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+            return;
+        } catch (IOException e) {
+            System.err.println("cannot read " + path + ": " + e.getMessage());
+            System.exit(1);
+            return;
+        }
+        System.out.printf("plexus: %d example(s) in a %dx%d frame, lattices %s, %d node(s)%n",
+                data.size(), rows, cols, plexus.lattices().stream().sorted().toList(), plexus.size());
         repl(plexus, data, rows, cols);
     }
 
@@ -232,17 +250,53 @@ public final class Main {
 
     // ---- parsing ---------------------------------------------------------------------------------------
 
-    /** The labelled examples of a data file, in file order. */
-    static List<Example> parse(Path file) throws IOException {
+    /** The frame's {@code {rows, cols}} from the header line {@code nxm}. */
+    static int[] dimensions(Path file) throws IOException {
         final var lines = Files.readAllLines(file);
-        final var rows = Integer.parseInt(lines.get(0).split("x")[0].trim());
-        final var body = lines.subList(1, lines.size());
+        final var header = lines.isEmpty() ? "" : lines.get(0).trim();
+        if (!header.matches("[1-9]\\d*x[1-9]\\d*"))
+            throw new IllegalArgumentException(at(file, 0) + "the header must be rows x columns, like 3x3, not \"" + header + "\"");
+        final var parts = header.split("x");
+        return new int[]{Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
+    }
+
+    /** The labelled examples of a data file, in file order. Any deviation from the format is an error at its line. */
+    static List<Example> parse(Path file) throws IOException {
+        final var dims = dimensions(file);
+        final var rows = dims[0];
+        final var cols = dims[1];
+        final var lines = Files.readAllLines(file);
         final var out = new ArrayList<Example>();
-        for (var i = 0; i + rows < body.size(); i += rows + 1) {
-            final var cells = body.subList(i, i + rows).stream().flatMapToInt(String::chars).map(ch -> ch == 'x' ? 1 : 0).toArray();
-            out.add(new Example(cells, Integer.parseInt(body.get(i + rows).trim())));
+        var at = 1;                                                   // the index of the next line to read
+        while (at < lines.size()) {
+            final var cells = new int[rows * cols];
+            for (var r = 0; r < rows; r++) {
+                if (at >= lines.size())
+                    throw new IllegalArgumentException(file + ": the file ends inside a record, which needs " + rows + " rows and a label");
+                final var row = lines.get(at).stripTrailing();
+                if (row.length() != cols)
+                    throw new IllegalArgumentException(at(file, at) + "row has " + row.length() + " cells, the frame is " + cols + " wide");
+                for (var c = 0; c < cols; c++) {
+                    final var ch = row.charAt(c);
+                    if (ch != 'x' && ch != '.' && ch != '_')
+                        throw new IllegalArgumentException(at(file, at) + "cell '" + ch + "' must be x (filled) or . or _ (empty)");
+                    cells[r * cols + c] = ch == 'x' ? 1 : 0;
+                }
+                at++;
+            }
+            if (at >= lines.size()) throw new IllegalArgumentException(file + ": the file ends after a record's rows, with no label");
+            final var label = lines.get(at).trim();
+            if (!label.equals("0") && !label.equals("1"))
+                throw new IllegalArgumentException(at(file, at) + "label must be 0 or 1, not \"" + label + "\"");
+            out.add(new Example(cells, Integer.parseInt(label)));
+            at++;
         }
         return out;
+    }
+
+    /** The {@code file:line: } prefix of an error on the zero-based line {@code i}. */
+    private static String at(Path file, int i) {
+        return file + ":" + (i + 1) + ": ";
     }
 
     /**

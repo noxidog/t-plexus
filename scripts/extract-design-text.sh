@@ -26,10 +26,9 @@ SET="docs/README.md
 docs/design.md
 docs/01-descriptor.md
 docs/02-trie.md
-docs/03-extension.md
 docs/04-slices.md
 docs/05-cli.md
-docs/06-engine.md"
+docs/interpretation.md"
 
 for f in $SET; do
     [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }

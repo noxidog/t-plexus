@@ -1,13 +1,13 @@
 /**
- * Plexus: a symmetry-routed exact classifier. A router, not a network: no weights, no thresholds, no statistics.
+ * Plexus: a symmetry-routed exact classifier. A router, not a network: no weights. The key has no thresholds; its one named threshold is documented in docs/02-trie.md.
  *
  * <p>Every input grid is filed by what its shape is, not where it sits. {@link org.tervel.plexus.Descriptor} reads
- * the bounding box of the non-zero pixels, picks the lattice (square, or hex when a square box gains symmetry by
+ * the bounding box of the filled cells, picks the lattice (square, or hex when a square box gains symmetry by
  * shearing), turns the shape into a canonical pose, and answers the symmetry walk. {@link org.tervel.plexus.Plexus}
  * keeps two tries, one per lattice, keyed
  *
  * <pre>
- * D4 root / D6 root → box → symmetry walk → mass → joins → [extensions] → orientation → pose → corner
+ * D4 root / D6 root → box → symmetry walk → mass → joins → shape → orientation → pose → corner
  * </pre>
  *
  * <p>Reads return {@link org.tervel.plexus.Verdict POSITIVE, NEGATIVE, ASSUMED or UNSEEN} under a

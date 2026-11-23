@@ -6,7 +6,7 @@
     <!-- Free, domain-less namespace verified on Sonatype Central via the GitHub account (no DNS).
          Central honors it permanently, so popularity never forces a coordinate change. -->
     <groupId>io.github.noxidog</groupId>
-    <artifactId>plexus</artifactId>
+    <artifactId>t-plexus</artifactId>
     <version>2.0.0</version>
     <packaging>jar</packaging>
 
@@ -95,7 +95,18 @@
                     </execution>
                 </executions>
             </plugin>
-        </plugins>
+                <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <configuration>
+                <archive>
+                    <manifest>
+                        <mainClass>org.tervel.plexus.cli.Main</mainClass>
+                    </manifest>
+                </archive>
+            </configuration>
+        </plugin>
+</plugins>
     </build>
 
     <profiles>
@@ -147,7 +158,8 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <autoPublish>true</autoPublish>
+                            <!-- false: a release is uploaded to a staging repository and published by hand, since a Central release cannot be withdrawn. -->
+                            <autoPublish>false</autoPublish>
                         </configuration>
                     </plugin>
                 </plugins>

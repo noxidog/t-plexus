@@ -12,32 +12,20 @@ A symmetry-routed exact classifier: it files every shape by what it is, not wher
  0–1  Design Overview  The task, the contradictions that make it hard, and the shape of the key. 
  2  The Descriptor  Bounding box, lattice pick, the symmetry walk, the canonical pose, invariants and trailing coordinates. 
  3  The Trie  Two tries, training, the four verdicts, and the extrapolation setting. 
- 4  Self-Extension  A new shape coordinate where different shapes collide; the primitive battery; diagnose. 
- 5  Slices  Constraints per level, the callback, and constructive generation. 
- 6  The Interpreter  cli.Main and the data-file format. 
- 7  The Engine  Lazy grids, templates matched by containment in every pose, expressions, stages and pipelines. 
+ 4  Slices  Constraints per level, the callback, and constructive generation. 
+ 5  The Interpreter  cli.Main and the data-file format. 
 
-Appendices
+Interpretation
 
-Interpretation, rationale and evidence, kept apart from the operating spec so the spec stays lean.
-
- Appendix  Contents 
- A — Mathematical Background  Frames as physics: the coherence argument, read as an interpretive lens. 
- B — Design Rationale  The seven principles, and what the cut-law dial really chooses. 
- C — Rejected Designs  Backoff, and materializing the group algebra as trie levels. 
- D — Performance Notes  Path length as description length, and the fiber cost model. 
- E — Formal Results  The bounding-box cap, plus a register of every result and where it lives. 
- F — Worked Examples  The T decomposition, plus a register of the in-place examples. 
- G — Complexus  The forthcoming sibling project: invariant synthesis, kept downstream. 
+The reading of these operations as conservation, fibers and symmetry breaking is in Interpretation.
 
 Reading orders
 
 - To use it: Design Overview → The Interpreter → ../data/README.md.
 - To understand the key: The Descriptor → The Trie.
 - To query and generate: The Trie → Slices.
-- To see how it grows: The Trie → Self-Extension.
-- To drive it from a domain layer: The Descriptor → The Engine.
-- To judge it: Appendix B → Appendix E → Appendix A.
+- To see how a shape is filed: The Descriptor → The Trie.
+- To judge it: the Limits in the README, then the measured figures in The Trie and the tests.
 
 Plexus: Design
 
@@ -47,21 +35,19 @@ A symmetry-routed exact classifier: it files every shape by what it is, not wher
 
 The input is a binary grid: an int[] of rows × cols cells, each 0 or 1. Each grid carries a label, 1 if it belongs to a target class and 0 otherwise. The classes are defined by shape: a shape and its turns, mirror images and moves are usually one class, but the data decides that, shape by shape. Sometimes a shape's orientation or position is the class (a side T against an upright T, a dot in the corner against a dot in the centre), and the router has to keep those apart when, and only when, the labels say so.
 
-The hard case is contradiction: two grids that agree on every coordinate the router reads but carry opposite labels. Plexus handles them exactly. Where the trailing coordinates (orientation, pose, corner) separate them, they do; where different shapes collide, a new shape coordinate is inserted if one of the battery's primitives tells them apart; and what is left (the same grid trained with both labels, or different shapes no primitive separates) stays as stored grids at the leaf, each answering with its own majority, never smoothed over.
+The hard case is contradiction: two grids that agree on every coordinate the router reads but carry opposite labels. Plexus handles them exactly. Where the trailing coordinates (orientation, pose, corner) separate them, they do; where different shapes collide, the canonical shape separates them before any pose or place is read; and what is left (the same grid trained with both labels) stays as stored grids at the leaf, each answering with its own majority, never smoothed over.
 
 1. What it is
 
-Plexus is a router, not a network. It has no weights, no thresholds, no statistics. Every grid is described (§2), filed under a key in one of two tries (§3), and read back with one of four verdicts.
+Plexus is a router, not a network. It has no weights. Its key has no thresholds; its one named threshold is listed in the trie. Every grid is described (§2), filed under a key in one of two tries (§3), and read back with one of four verdicts.
 
-    grid ──describe──▶ D4 root / D6 root → box → symmetry walk → mass → joins → [extensions] → orientation → pose → corner
+    grid ──describe──▶ D4 root / D6 root → box → symmetry walk → mass → joins → shape → orientation → pose → corner
 
  Part  What it does 
  Descriptor  bounding box, lattice pick (square or hex), canonical pose, the symmetry walk's answers, mass, joins, and the trailing coordinates 
  The trie  two tries, training, the four verdicts and the extrapolation setting 
- Self-extension  a new shape coordinate where different shapes collide; [8] diagnose 
  Slices  constraints per level, a callback per grid, constructive generation 
  The interpreter  cli.Main: score, trie, grid, slice, diagnose 
- The engine  lazy grids, templates in every pose, stages folded over a grid, for a domain layer to drive 
 
 The unifying idea is the slice: fix some coordinates of the key and read what stays constant, or enumerate what varies. Classification runs the key forward (grid to answer); a slice runs it backward (constraints to every grid that answers so). The same tries serve both.
 
@@ -75,7 +61,7 @@ Descriptor.of(grid, rows, cols) turns a grid into the values the key is built fr
 
 2.1 The bounding box
 
-One pass over the pixels gives the box of the non-zero cells: a square (h = w) or a rectangle. An empty grid has no box and gets the single key empty.
+One pass over the pixels gives the box of the filled cells: a square (h = w) or a rectangle. An empty grid has no box and gets the single key empty.
 
 The box caps the symmetry the shape can have. Any symmetry of a shape also maps its box onto itself, so it fixes the box's centre, and the centre is the only point the shape can be symmetric about. A rectangle allows at most D2 (rot180 and the two axis mirrors); a quarter turn or a diagonal mirror would turn an h × w box into w × h.
 
@@ -97,14 +83,14 @@ A shape lives on one of two lattices, and each has its own trie.
 
 The shift is one cell to one cell, nothing interpolated, so the input stays exact. The disk's 90° turn, xx./xxx/.xx, matches the other diagonal, shifts the other way, and lands on the same hexagon.
 
-Lattices. A router is built on a set of lattices, fixed for its life, because the neighbours are part of the key: they define joins and every self-extension primitive. Lattice.SQUARE_4 (edge neighbours), Lattice.SQUARE_8 (edge or corner neighbours, the king's move) and Lattice.HEX_6 (the six neighbours of the sheared reading). A legal set holds exactly one square lattice, since rectangles always file on the square lattice and square joins must have one meaning, and optionally HEX_6; anything else throws IllegalArgumentException. The default is SQUARE_4 + HEX_6.
+Lattices. A router is built on a set of lattices, fixed for its life, because the neighbours are part of the key: they define joins. Lattice.SQUARE_4 (edge neighbours), Lattice.SQUARE_8 (edge or corner neighbours, the king's move) and Lattice.HEX_6 (the six neighbours of the sheared reading). A legal set holds exactly one square lattice, since rectangles always file on the square lattice and square joins must have one meaning, and optionally HEX_6; anything else throws IllegalArgumentException. The default is SQUARE_4 alone; HEX_6 is added only when the caller asks for it.
 
-    new Plexus(rows, cols)                                    // SQUARE_4 + HEX_6, self-extension on
+    new Plexus(rows, cols)                                    // SQUARE_4 only
     new Plexus(rows, cols, Lattice.SQUARE_8)                  // square only, 8 neighbours
     new Plexus(rows, cols, Lattice.SQUARE_8, Lattice.HEX_6)   // 8-neighbour squares, hex still tried
-    new Plexus(rows, cols, Set.of(Lattice.SQUARE_4), false)   // square only, self-extension off
+    new Plexus(rows, cols, Set.of(Lattice.SQUARE_4))   // square only
 
-Without HEX_6, steps 2 and 3 are skipped for every square box: each shape stays on the square lattice, files under the D4 root, and the D6 root stays empty. The hex disk then reads as a square box with rot180, diagMain and diagAnti. Descriptor.of(grid, rows, cols, lattices) describes one grid the same way; every descriptor records the lattice that described it in lattice().
+The default lattice set is the square lattice alone, so hex is tried only when the caller passes HEX_6: the grid alone cannot say whether its cells are hex cells. Without HEX_6, steps 2 and 3 are skipped for every square box: each shape stays on the square lattice, files under the D4 root, and the D6 root stays empty. The hex disk then reads as a square box with rot180, diagMain and diagAnti. Descriptor.of(grid, rows, cols, lattices) describes one grid the same way; every descriptor records the lattice that described it in lattice().
 
 2.3 The symmetry walk
 
@@ -167,7 +153,7 @@ Two tries, one per lattice; training, reading, and the extrapolation setting.
           └─ ... one level per symmetry             └─ ...
              └─ mass
                 └─ joins
-                   └─ [extensions]
+                   └─ shape
                       └─ orientation
                          └─ pose
                             └─ corner   (leaf: the trained grids)
@@ -178,7 +164,7 @@ Everything above the trailing levels describes the shape alone: every turn, mirr
 
 3.2 Training
 
-Training walks the grid's whole path, creating any missing nodes, adds one to the counts of every node passed, and stores the grid at the leaf. Nothing is sealed. fit inserts every grid in one pass and then runs self-extension (§4) once; accept inserts one grid, runs self-extension, and is legal at any time.
+Training walks the grid's whole path, creating any missing nodes, adds one to the counts of every node passed, and stores the grid at the leaf. Nothing is sealed. fit inserts every grid in one pass; accept inserts one grid, and is legal at any time.
 
 3.3 Reading
 
@@ -197,49 +183,23 @@ Extrapolate sets how far a read may go beyond what was trained: the highest leve
  NONE  nothing 
  PLACEMENT  unseen orientations, poses and corners of trained shapes 
  SYMMETRY (default)  also unseen symmetry classes, provided the query's mass and joins occur together somewhere under the node 
- EVERYTHING  also unseen mass, joins and extension values, and unseen symmetry classes whatever their mass and joins 
+ EVERYTHING  also unseen mass and joins values, and unseen symmetry classes whatever their mass and joins 
 
 The root never stands in for a box, so a grid whose box was never trained is UNSEEN under every setting. Under the default, a fold over symmetry never crosses mass or joins: trained on the T (mass 4, joins 3), the L (xxx/x.., also 4 and 3) is ASSUMED 1, while the U (x.x/xxx, mass 5) and x.x/x.x (mass 4, joins 0) are UNSEEN. Under EVERYTHING both are ASSUMED 1.
 
+A pure node stands in only when it holds at least MIN_SUPPORT_SHARE (0.001, Plexus.MIN_SUPPORT_SHARE) of its parent's training evidence, so a node seen once against a large branch is not taken as evidence for an unseen child.
+
 A pure node's children record which values were actually seen, and the answer's context shows how deep the evidence goes. With only upright T's trained, a side T is ASSUMED from the joins=3 node, whose children split on orientation: no side T was ever seen. With a side T also trained, a side T at a new corner is ASSUMED from turned=yes → pose=0: only the corner is new. Train a side T with label 0 instead and the orientation level separates them: side T's then read 0 and upright T's 1, for this shape only.
 
-Self-Extension
+Coverage
 
-A new shape coordinate where different shapes collide.
+What a trained router answers for grids it never saw, measured on 4×4 frames (measured once with probe programs, which are not part of the test suite):
 
-4. Self-extension
+- Held-out placements of trained shapes. A shape trained at a quarter of its placements answers every one of the others under PLACEMENT and above (43,578 of 43,578).
+- Shapes never trained. Answered 0 of 5,743 under every setting. A shape has its own path below the shape level, and no stand-in crosses shapes, so an unseen shape is UNSEEN. This is deliberate: an answer for a shape the router has never seen would be borrowed from another shape's label.
+- Labels that are not a function of the shape (random labels). Almost every shape is contradicted, so almost every answer is UNSEEN; the router abstains rather than guessing.
 
-A mixed node means one of two things:
-
-- One shape, different labels by pose or place. Upright T's labelled 1 and side T's labelled 0; a dot in the corner labelled 1 and the same dot in the centre labelled 0. The trailing levels (orientation, pose, corner) already separate these. Nothing is added.
-- Different shapes that share the key so far. A path and a fork with the same box, symmetry, mass and joins. What is missing is a shape coordinate.
-
-Self-extension runs at the end of fit and after every accept; extend() runs it on demand. Every junction (the node just above the trailing levels) that holds both labels is checked by comparing its members' canonical poses. If they are several shapes, the battery primitive with the best information gain, and not already on the path, is inserted at the junction, and the subtree is rebuilt from the stored grids. A primitive is only inserted if its gain is positive. This repeats until no junction changes. new Plexus(rows, cols, lattices, false) turns the automatic runs off.
-
-4.1 The battery
-
-Primitive.BATTERY holds properties of the shape's cell graph on the lattice that described it, the same adjacency as its joins (4 or 8 neighbours square, 6 hex):
-
- Primitive  Value 
- max-degree  the most neighbours any cell has 
- branch-points  cells with 3 or more neighbours 
- end-points  cells with exactly 1 neighbour 
- pieces  connected components 
- loops  independent cycles: joins − mass + pieces 
-
-None of them refers to a direction, so each is unchanged by every turn and mirror of its lattice and is a legal coordinate on both tries. Ties go to the earlier primitive in the list. On separable-path-fork-5x5 Plexus inserts max-degree: the fork has a cell with 3 neighbours, the path does not.
-
-4.2 Diagnose
-
-Plexus.diagnose() ([8] in the interpreter) lists the mixed junctions and the mixed leaves, each with its path and counts, and what resolves it. Mixed nodes elsewhere (above a junction, or between it and the leaves) are not listed. With nothing to list it prints none: every node is pure.
-
- Report  Where  Meaning 
- one shape: separated by orientation, pose or corner  junction  the trailing levels split the labels 
- several shapes: separated by <primitive>  junction  an extension was inserted here 
- several shapes: no primitive separates them; kept as members at the leaves  junction  the battery has nothing with positive gain 
- the same grid trained with both labels  leaf  a true contradiction; a read answers with the grid's majority label, and a tie falls to the leaf's majority 
- different shapes with one full key: each stored grid answers with its own label  leaf  shapes that agree on every level down to the corner, and that no primitive separated 
-
+The coverage figures of earlier designs, 40 to 55% on larger frames, came from the time when shapes shared a key. They do not hold now.
 Slices
 
 Constraints per level, a callback per grid, and constructive generation.
@@ -286,7 +246,7 @@ By default every matching grid is an entry (Per.PLACEMENT). Per.POSE folds the p
 
 5.3 Constructive generation
 
-For a stand-in at a shape level (symmetry, mass, joins, extension), candidates are built, not searched for:
+For a stand-in at a shape level (symmetry, mass, joins), candidates are built, not searched for:
 
 1. Read the box and the symmetries already answered yes on the path.
 2. Group the box's cells into the orbits of those symmetries.
@@ -295,7 +255,9 @@ For a stand-in at a shape level (symmetry, mass, joins, extension), candidates a
 
 A one-mirror 2×3 node has 4 orbits, so 2⁴ fills instead of 2⁶; a fully symmetric 3×3 node has 3, so 2³ instead of 2⁹. For stand-ins at the trailing levels, the candidates are every pose and placement of the shapes stored under the node. On the hex root the candidates are all subsets of the s×s square input box, without the orbit step. A node whose enumeration would exceed 2²¹ is skipped and counted in Slice.Result: more than 21 orbits on the square root, or a box larger than 4×4 on the hex root.
 
-What a slice generates is exactly what reading answers for. The suite checks this on three 3×3 datasets, for every setting and both labels, against all 512 grids of the frame.
+What a slice lists is exactly what reading answers for, on frames of up to 16 cells. The suite checks this on three 3×3 datasets, for every setting and both labels, against all 512 grids of the frame. On a 4×4 frame it checks all 65,536 grids for the PLACEMENT and EVERYTHING settings, for both labels.
+
+By default, on a frame above 16 cells, a slice lists what its walk reaches, and that can omit grids a read answers. .exhaustive(true) reads every grid that passes the query's constraints, so the list is complete on frames of up to 30 cells, at one read per grid. The shipped 5×5 dataset separable-path-fork-5x5 has 25 cells, so an unconstrained exhaustive slice reads about 33 million grids.
 
 The Interpreter
 
@@ -306,11 +268,11 @@ cli.Main: train on a data file, then query.
     java -cp out org.tervel.plexus.cli.Main data/conservation-t-orbit-3x3.txt
     java -cp out org.tervel.plexus.cli.Main data/conservation-t-orbit-3x3.txt --lattice square8
 
---lattice picks the router's lattices, comma separated from square4, square8 and hex6; the default is square4,hex6. A set without exactly one square lattice is refused with the reason.
+--lattice picks the router's lattices, comma separated from square4, square8 and hex6; the default is square4. A set without exactly one square lattice is refused with the reason.
 
-Main reads the data file, trains a Plexus on it (self-extension on), prints one line with the example count, the frame, the lattices, the number of trie nodes and any extensions inserted, and opens a REPL:
+Main reads the data file, trains a Plexus on it, prints one line with the example count, the frame, the lattices and the number of trie nodes, and opens a REPL:
 
-    plexus: 2 example(s) in a 5x5 frame, lattices [SQUARE_4, HEX_6], 16 node(s), extensions [max-degree]
+    plexus: 2 example(s) in a 5x5 frame, lattices [SQUARE_4], 16 node(s)
 
     [5] score  [t] trie  [4] grid  [s] slice  [8] diagnose  [q] quit
 
@@ -319,11 +281,11 @@ Main reads the data file, trains a Plexus on it (self-extension on), prints one 
  [t] trie  draws both tries as indented paths, each node with its counts; leaves marked 
  [4] grid  reads a typed grid (xxx/.x.: rows separated by /, x or 1 filled, placed top-left in the frame): its descriptor, then its verdict under each setting with the controlling context 
  [s] slice  prompts for root, symmetries to keep at least, mass, joins, label, orientation (0 / 1, or upright / turned, right / left), pose (a number; 0 is the canonical pose), corner (row,col), what to show one entry per (placement, pose or shape), and extrapolation (none, placement, symmetry or everything), then prints every grid the slice produces with its evidence and context, and the confirmed and assumed counts. A blank answer, or any, all, both or none, leaves a prompt unconstrained. Mass and joins take a number or a range (4-5). Symmetry names ignore case, spaces and hyphens; an unknown name, a bad range, or an unknown root, label, orientation, pose, corner, show or extrapolation value is refused with a message saying what was expected 
- [8] diagnose  lists the mixed junctions and leaves and what resolves each (§4.2) 
+ [8] diagnose  lists the mixed junctions and leaves and what resolves each 
 
 6.1 Data files
 
-The first line is nxm. Only n, the row count, is read from it; the column count is the first record's cell count divided by n. Then one record per example: n rows of the grid (x filled, anything else empty), followed by a line holding the label, 0 or 1.
+The first line is nxm: rows by columns. Then one record per example: n rows of m cells (x filled, . or _ empty), followed by a line holding the label, 0 or 1. Any other cell, a row of the wrong width, a label other than 0 or 1, a record cut short or a blank line is an error that names its line, and the file is not trained. Usage errors and unreadable files exit with a nonzero status.
 
     3x3
     xxx
@@ -331,81 +293,231 @@ The first line is nxm. Only n, the row count, is read from it; the column count 
     ___
     1
 
-The Engine
+Interpretation
 
-Lazy grids, templates matched in every pose, and stages folded over a grid: what a domain layer drives.
+How to read what the code computes, and what the computation is taken to mean. Sections headed Code describe existing code. Sections headed Interpretation are readings: they say what the code's operations correspond to, and the code they point toward is named in the caveat at the end.
 
-7. The engine
+Code: shape and placement
 
-The router classifies one grid. The engine runs a program over a grid: a caller (a domain layer such as a screen grammar) describes its problem as planes, templates and stages, and the engine evaluates it. Nothing here knows what a label means; the caller's vocabulary says.
+A grid holds one shape in a frame. Descriptor separates two parts of it:
 
-7.1 Grid
+- the invariant, what the shape is: its bounding box, its symmetry answers, its mass (filled cells), its joins (touching pairs) and its canonical pose;
+- the placement, where it sits: the orientation it was read in, the pose that reaches the canonical form, and the corner it occupies in the frame.
 
-A Grid is rows × cols cells, each carrying one label, supplied by an Oracle the caller gives:
+The invariant is unchanged by turning, mirroring or moving the shape. The placement is what changes. The trie keys on the invariant first and records the placement in its last levels (Level.ORIENTATION, Level.POSE, Level.POSITION).
 
-    Grid g = Grid.of(rows, cols, vocabulary, (r, c) -> recognize(r, c));
+Code: slices
 
-- Lazy. A cell's label is computed the first time something needs it and remembered. A cell nothing asks about is never computed. recognized() says how many were.
-- Immutable. relabel(r, c, label) and mark(plane, r, c, note) return a new grid. Every grid derived from one capture shares what the oracle answered, so no cell is computed twice.
-- Planes. in(plane, r, c) resolves a plane name through the Vocabulary, in order: a plane that holds everywhere; a plane a stage marked the cell in; the cell's label; a class of labels. Off the grid only the vocabulary's outside planes hold. The first two answer without computing the label.
-- Read and written stay apart. A label is either read (the oracle observed it) or a state (a stage concluded it); the vocabulary's states names the second kind. read(r, c) is always the oracle's answer and label(r, c) the current one. relabel writes only states, and an oracle answering with a state is an error, so a conclusion can never pass for an observation.
+A slice (Slice) fixes some of the answers the descriptor gives, and reads the grids that agree with them. What the slice holds fixed is the constraint you set: a box, a symmetry, a mass range, a joins range, a pose, a corner. What varies is the rest of the grid. Slice.Per decides whether each matching grid is listed, or folded into one entry per pose or per shape.
 
- Vocabulary part  Meaning 
- classes  class name → the labels it groups 
- values  label → the integer it carries (value(r, c)) 
- outside  plane names that hold for a cell off the grid 
- everywhere  plane names that hold for every cell on the grid 
- states  labels only a stage writes and the oracle never answers 
+The default descriptor does not record placement in its key, so translation is folded away. Placement has its own level, so a slice can fix it with corner(row, col).
 
-7.2 Template
+Code: fibers and counting
 
-A Template is a small pattern of named cells around an anchor:
+Each key collects the grids that share it. Plexus has no function that returns a key's fiber size. A slice lists the grids of a fiber that a read answers, and Slice.Result counts them (confirmed, assumed, skipped). Counting the entries of a slice is therefore the way to count the grids behind one set of constraints. Frames above 16 cells are not checked against reads (see Slices).
 
-    Template t = Template.of(new String[][]{
-            {"clear",   "clear",   "clear"},
-            {"one",     "two",     "one"},
-            {"covered", "covered", "covered"}}, 2, 1);   // anchor: row 2, column 1
+Code: orbits and stabilizers
 
-- Cropped by construction. It is stored as offsets from the anchor; null cells are not part of it, so its size is whatever it was declared with. box() gives its extent.
-- Poses. Its images under the square's eight motions about the anchor, the anchor staying put. Images that coincide are kept once, so a symmetric template has  D4  ÷  Stab  poses. Each pose records the move that produced it from the declaration. The smallest pose is canonical(); two templates are equal when their canonical poses are, so a template and its rotation are the same template.
-- Containment. matches(grid, r, c) is true when, in some pose with the anchor on (r, c), every cell is in the plane it names. Cells it does not name are never looked at, so the grid may carry more. The first cell that fails rejects the pose.
-- Placements. covering(grid, r, c, role) lists every placement that holds and has a cell named role on (r, c): the ways the template can sit with that cell inside it. Placement.count(grid, role, plane) counts how many of its role cells are in plane, and at(plane) gives where its cells named plane landed.
+Descriptor.stabilizerSize() returns how many of a shape's motions leave it unchanged: of the square's eight for a square box, of the rectangle's four for a rectangle, and of the hex lattice's twelve for a hex shape. Descriptor.orbitSize() divides the square's or the hex lattice's motion count by that stabilizer size, giving the number of distinct orientations the shape has on its own lattice. For a hex shape this is a count on the hex lattice, so it need not equal the number of distinct grids the shape takes in the square frame it was read from. For a rectangle the code divides the square's eight motions by the stabilizer, so a rectangle's orbit is counted against the square group.
 
-7.3 Expression
+Code: sum over the group's motions
 
-Expression.parse("value - flag"): integers and names joined by + and -. eval(name -> …) takes what each name is worth from the caller.
+Each motion of the lattice's group is a possible transform of the shape. A motion the shape keeps is one under which its label does not change; a motion it does not keep is one that changes it. The motions a shape keeps are its stabilizer, and Descriptor.symmetries() returns their names. The walk asks each motion in a fixed order, one yes or no per motion; a motion answered no is one the shape does not keep.
 
-7.4 Stages and pipelines
+Slice.atLeast(...) and Slice.exactly(...) select the grids whose stabilizer contains, or equals, the named motions. So a query over the stabilizer is a sum over the shapes whose allowed motions match. The moves are spatial transforms of the frame, so these are symmetry paths, not the time paths an action integral would sum.
 
-A Stage<C> is a context and a grid in, a grid out. The output may be the input unchanged; the caller assumes nothing and hands it on. The context C is the caller's: whatever it resolved before this grid existed. Plexus never looks inside it, and hands the same one to every stage, test and effect of one application.
+Code: symmetry breaking
 
-    Stage<Run> forced = Stage.atEach("covered", (run, in, r, c) -> …condition…, (run, out, r, c) -> out.relabel(r, c, "flag"));
-    Pipeline<Run> solve = Stage.of(List.of(forced, freed, guess.onlyIf((run, g) -> !g.anyMarked("click"))));
-    Grid result = solve.apply(run, grid);
+The square's eight symmetries (D4, Groups.D4) include the transpose, so its two axes are interchangeable. A rectangle has four (D2, Groups.D2), because its axes differ in length and cannot be swapped. The rectangle's walk asks about the short-axis and long-axis mirrors separately. On the square, a turn by 90° turns mirrorH into mirrorV, so the walk asks both, and a mirror is spelled once, as mirrorH, in the canonical pose.
 
-- Stage.atEach(anchor, test, effect) visits every cell of the anchor plane. Each test reads the grid the stage was given, so the order cells are visited in cannot change the result.
-- Stage.sweep(anchor, test, effect) visits the same cells but writes through: each test reads the grid as the stage has written it so far, so a change is seen by every cell visited after it, and a cell an earlier change took out of anchor is skipped.
-- onlyIf(predicate) runs a stage only when the predicate holds for its context and input.
-- A Pipeline folds the grid through its stages in order, once, in one context. A pipeline is itself a stage.
+So breaking a symmetry makes properties separately nameable. A rectangle's walk asks its two mirrors as separate questions; a square's walk asks its mirrors as conjugate questions. A hex shape has the six turns and six mirrors of Groups.D6; the descriptor files a shape under the hex root only when the caller declares Lattice.HEX_6.
 
-7.5 Frames and shape counts
+Code: stand-ins and invariance
 
-- Frame.stabilizer(grid, rows, cols) gives the motions of a fixed frame that leave a grid of any integers unchanged, as a mask over Frame.moves(rows, cols) (eight on a square frame, four on a rectangle). Unlike a descriptor it compares cell values in place.
-- Descriptor.stabilizerSize() and orbitSize() count a shape's own symmetry wherever it sits: a domino has 4 motions and 2 orientations.
+A read can answer for a grid it has not trained by reaching a pure node: a node whose evidence all has one label, or, with a tolerance, a node whose minority is within the tolerance (Plexus(…, tolerance)). The extrapolation setting (Extrapolate) says how far up the trie that stand-in may come from. PLACEMENT allows the placements of a trained shape. SYMMETRY also allows other symmetry classes with the same mass and joins. EVERYTHING allows any mass and joins. NONE allows no stand-in.
 
-7.6 Repeats
+The descriptor is unchanged by the frame's own motions. The tests check this exhaustively on small frames and by sampling on larger ones (ShapeIdentityTest).
 
-Repeat.of(grid, rows, cols) gives the whole shifts that map a grid of cells onto itself, as Descriptor gives the turns and mirrors. The grid is binary or labelled: 0 is background, any other value a label. A picture of pixels is read into cells first (more than 64 labels is refused); repeats at a fractional number of pixels are the reader's business, not Plexus's. Everything is exact.
+Code: identity and twins
 
-- Agreement at a shift is the share of labelled cells whose cell one shift over holds the same label, counted exactly (through Plexus's own FFT, rounded). Prominence is how far that stands from chance (how often the labels would agree if they were scattered independently) towards perfect: a repeat is a peak at a prominence of at least a quarter, relative because a pattern filling a third of the frame agrees far less overall than one filling all of it, and random cells agree as often as they are dense. A whole multiple of a shorter repeat is taken as the shorter one when every multiple of that shorter step up to it is at least half as prominent: a short shift that agrees only because cells clump together fails somewhere along that chain.
-- Every cell. A one-cell step sits beside the zero shift, which agrees perfectly, so it is never a peak. Where no peak is found, the grid repeats every cell when one label clearly fills it (more than half the frame and more than twice any other label): the motif is that one label and everything else is a defect. A board read into cells is this case: the covered cell is the motif, the opened cells the defects, grouped by face. A lone shape in an empty frame, or random cells, does not repeat.
-- The basis v1, v2 is reduced to the shortest pair, v1 pointing right and v2 down; when they are equally long v1 is the more horizontal; on a hex lattice v2 is the neighbour at 60°. So the same pattern always gets the same (i, j) addresses.
-- The type is read from exact lengths and angles on the grid's storage: the square grid's own, or for Repeat.of(grid, rows, cols, Lattice.HEX_6) the hex plane's, where a hex lattice is exact. SQUARE, HEX, RECTANGULAR, RHOMBIC, OBLIQUE, or STRIPE (one direction) and NONE. moves() lists the moves that map it onto itself, as Plexus's own D4 and D6 in their own order: all 8 for square, 12 for hex, identity, rot180, mirrorH, mirrorV for rectangular, identity, rot180, diagMain, diagAnti for rhombic, identity, rot180 for oblique. lattice() is HEX_6 for hex, SQUARE_4 for the rest.
-- Repeat.basis(v1, v2, storage, …) builds one from known steps; as(type) reads it as a declared type, which wins over what was measured.
+Two grids have the same key when they are the same shape up to the group, in the same frame. For trained shapes the key is exact: every trained grid reads back its own label. Two different shapes can share every invariant answer. The router then keeps both under one key, and it cannot separate them without a finer level. Those are the twins. Plexus.diagnose() lists the junctions where a shape and another shape meet without a separating level.
 
-repeat.periods(grid, rows, cols, sizes, picker) splits the grid into a frame and its defects:
+A grid with no filled cells is kind EMPTY. A grid the router has no answer for reads UNSEEN, and score() returns −1 for it.
 
-- A period is the  v1 × v2  cells the repeat's parallelogram covers from a corner.
-- Where a period starts is not in the repeat: every one of its corners tiles the grid. Each corner is ranked by how many of the repeat's moves leave the motif unchanged about the centre of the period it starts, and the most symmetric are the candidates (phases()). A tile's corner and the crossing of the gaps between tiles can be equally symmetric, so the caller's Picker chooses; NEAREST_TOP_LEFT when nothing tells them apart.
-- The region is a block of whole periods, each scored by the share of its cells holding the motif's label. With sizes the block of each allowed size that stands highest above the ring of periods round it wins, so the size is exact; without, the largest connected block of the high group, the groups split where the data splits (only when the split explains at least 78% of the spread, above the 64% of noise round one value and the 75% of evenly spread values).
-- The motif is the most frequent label at each period cell over the region (a first one, to rank the corners, over the periods that agree with their neighbours). A defect is a period that differs from it anywhere, and defects holding exactly the same labels share a group. score and distance (differing cells) are returned for every period.
+Code: the read is finite
+
+A read walks the trie once, from the root to a leaf or a stand-in, and then stops. Training inserts a grid by the same walk. Nothing is updated when a read happens, and nothing in the router moves a grid to another grid. The router reads a grid and does not evolve it.
+
+Code: what is not modelled
+
+The code has no time, no dynamics and no write-back. It has no metric: distance between shapes is not part of the key, and the guess method's distance is a count of cells that differ after the best of the square's eight motions (Plexus.guess). Placement is recorded exactly, so a rule about where a shape sits does not carry to positions it has not been trained at.
+
+Interpretation: frames as physics
+
+This is a coherence argument, not a claim to have built physics. It asks whether the machine is a sound way to analyse the world, not only a classifier of one dataset. The argument runs by construction: nothing physical is put into the machine. It is a structural router: symmetry, a chain of invariants, and an exact residual. It has no equations of motion, no action, no Planck constant, no metric. Yet when a stream of grids is read as frames of an object over time, the scaffolding of physical law appears without being forced: conserved charges, entropy as the log of a fiber, least action as the intersection of slices, the sum over paths, the classical–quantum fold, and the renormalization flow.
+
+A framework earns the name of a coherent ontology when the side-effects we already expect from how we observe the world re-appear as consequences of its own structure: when the world is recognised in it without having been inserted by hand. That recurrence is the argument. The same slice-and-find-the-constant logic that routes a shape under D4 is the logic by which conservation, causality and scale are read out of nature.
+
+Reading map
+
+The examples span a small basis of about six axes. The physics examples cluster on the first. Read down a row for the coherence argument, or one example per row for the fastest collapse.
+
+ #  Axis  What it fixes  Readings below 
+ 1  Slice / conservation  fix a symmetry's coordinates; what stays constant is the conserved quantity  Correspondence · Conservation · Time as cursor · Law as compression · Least action · Sum over paths · Classical↔quantum · Drive and gate · Relativity · Light cone 
+ 2  Fiber / entropy  the un-fixed remainder, log|fiber|  Entropy · Playing a position 
+ 3  Volume = determinant  the size of the collapse, as a determinant  The thread is the determinant 
+ 4  Decision without the volume  act under a utility or stopping rule  Utility and strategy · Playing a position 
+ 5  Symmetry breaking  decidability lives in the break  Symmetry breaking: the rectangle 
+ 6  Change of scale  the fold across scales  Change of scale 
+
+Row 1 is sampled ten ways on purpose: the recurrence across physics is the argument. Rows 3, 5 and 6 are sampled once each, rows 2 and 4 twice.
+
+Correspondence
+
+ Plexus  physics 
+ invariant part of the descriptor (mass, connectivity, symmetry)  the macrostate, the conserved quantities 
+ cropped pose (translation, rotation)  the configuration coordinates where motion lives 
+ a slice (fix the coordinates naming a symmetry)  a conservation law; the slice cut is the law (Noether) 
+ constant along the slice  a conserved quantity (constant of motion) 
+ the law: a state-to-next-state rule independent of when  time-translation invariance, which is energy conservation 
+ the descriptor fiber, all grids with one macrostate  the microstates; log|fiber| is the entropy 
+ the label (1/0) read at each step  the alive / halt bit: survival under the dynamics 
+ the irreducible symmetry twins  the death points no symmetry can argue away 
+ the context trie  the Turing tape quotiented by the symmetry group 
+
+Interpretation: conservation is a constant along a slice
+
+A conserved quantity is a constant of motion. Cut a slice, walk the frames, and whatever stays the same is conserved. Cut along translation and you get momentum; along rotation, angular momentum; along time with a fixed rule, energy; along the invariant, mass or identity.
+
+"The same" lives at two orders. A scalar charge (mass, energy) is flat in value. A vector charge (momentum) is flat in rate: the pose advances at a constant step. A bend in the flat quantity localizes a force. The default descriptor is translation-invariant, so it folds momentum away; to read momentum, keep the pose and watch the placement advance uniformly.
+
+Interpretation: time is the cursor, not a category
+
+A law of physics is the requirement that the state-to-next-state rule not depend on when, which is time-translation invariance and so energy conservation. Time is the playback cursor the rule is iterated along, not an axis the router sorts on. Make time a category and you get a flipbook, not laws.
+
+Interpretation: the law is a compression
+
+A lawful trajectory needs only an initial frame and a rule; the rest regenerate by iteration. The descriptor does spatial compression: cropping the position folds the orbit to one code. The law does temporal compression: one rule instead of every frame. Like a video codec, the conserved quantities are the compressible skeleton, stored once. Entropy is the incompressible residual. A force is a keyframe: the surprise the predictor could not fold.
+
+A lawful universe is a compressible one, and finding the laws is finding the best compression (Kolmogorov, minimum description length). The trie makes this operational: the depth at which a walk resolves a label is the description length of that label's dependence. Laws stop shallow; facts walk to the grid.
+
+Interpretation: entropy is the log of the fiber
+
+The descriptor is the macrostate. Its fiber is the set of microstates sharing it, so entropy is log  fiber  , and the count of possibilities a slice lists is that number. Conservation enables entropy rather than opposing it. A conserving, volume-preserving flow cannot shrink the cloud of states, so it can only spread until it fills the surface the invariants allow. Maximum entropy is the largest fiber.
+
+This gives the arrow. Conservation draws a reversible rail; entropy sets the direction along it, toward larger fibers, simply because there are more of them. Conservation says where you can go; entropy says which way you almost certainly will.
+
+Interpretation: least action is threading the intersection
+
+Each conserved quantity confines the trajectory to its slice. Conserve several and the trajectory is pinned to their intersection: a thin residual channel, and time is motion along that channel. Free motion conserves the most, so it has the full intersection, a straight line: the geodesic. A force looks like broken conservation, but for a closed system (object plus field) everything is still conserved; the charge only flows between subsystems. The precise selector is to extremize the action; "most conserved" is the intuition for the free and closed cases.
+
+Interpretation: the thread is the determinant
+
+The fiber a grid is pinned to once its conserved coordinates are fixed is the thread, and log  fiber  is its entropy. The slogan can be made an executable identity: the volume of the thread is a determinant. Several volumes could be computed at each node and checked against each other:
+
+- the combinatorial volume, how many grids of the frame route to the node;
+- the rigid orbit of a representative member, in the bounding-box frame, translation quotiented out;
+- the orbit-stabilizer index,  G  /  Stab  , the group-theoretic determinant of the action;
+- the Gram determinant of the descriptor's Jacobian, the discrete co-volume of the coordinates, which is the change-of-variables reading: the factor relating a count in the ambient frame to a measure along the thread;
+- the Matrix-Tree determinant of the cell graph, the number of spanning trees, which is the graph-theoretic volume and the rigorous form of the path, tree and loop dial.
+
+The identity to check is orbit-stabilizer: the rigid orbit equals  G  /  Stab  . The full-frame fiber is larger by the translational multiplicity, how many places the box fits in the grid. That is the residual entropy the rigid group cannot see. Agreement would certify a context that is one tight orbit; disagreement would flag a context inflated by translation or by a mix of shapes. The divergence is the handle on where, and by how much, structure under-counts the fiber. The code computes the orbit and stabilizer sizes (see Code: orbits and stabilizers); the other volumes are the reading.
+
+Interpretation: sum over paths
+
+Least action picks one extremal trajectory. The path integral keeps all of them and sums. The machine has the discrete version: sweep the group, and each motion is a possible path. The motions under which the input keeps its label are the allowed paths; the rest are forbidden. The allowed paths are the input's stabilizer, so the stabilizer is the bundle of histories that keep the input, and summing over paths is summing over that orbit. A large stabilizer means many allowed paths, a long-lived history; the first forbidden motion names the symmetry the input lacks.
+
+The honest seam: these are spatial transforms, so they are symmetry paths, not the time paths an action integral sums. The time drive is not in the code.
+
+Interpretation: utility and strategy, deciding without the volume
+
+Summing over paths keeps every history, and the fiber counts them. But often a decision must be made without computing the volume, and that is a different, decision-theoretic layer.
+
+The seam is already present. Where both labels reach one leaf, the leaf's majority is an implicit choice: it picks the label minimising error, the argmax under a hidden 0/1 utility. Making that valuation explicit gives a reusable utility: it answers how good an outcome is, where an invariant answers what coordinate it is.
+
+On top of a utility sits optimal stopping, the secretary or Sultan's dowry problem. Outcomes arrive one at a time, scored by the utility, and each must be committed to or discarded on the spot, with no recall. You carry only a running benchmark and your position. The classic solution is the 1/e rule: reject the first ⌊n/e⌋, then take the first that beats them. It lands on the global best with probability about 0.368. It is deliberately volume-blind.
+
+The rule factors into a harness and a strategy, the explore-versus-commit dial. Safe (greedy, risk-averse) takes the first outcome that beats the benchmark; neutral is the 1/e rule, the fixed point of the two regrets; risky waits for the best. Neutral maximises the chance of the best outcome; both poles fall to 1/n. Scaling riskiness moves the strategy toward the pole it leans toward.
+
+Two seams. First, this is decision theory against indifferent chance; its multi-agent sibling is game theory, where a second chooser competes for the same stream and the threshold becomes a strategy that must best-respond. Second, the 1/e rule is blind because the abstract problem cannot see the remaining volume. A Plexus can see it, so it could run the volume-aware rule: a declining threshold read off how much fiber remains. The residual where even that runs out, two outcomes tied on every admissible measurement, is the symmetry twin: a choice no rule can make, left to the stored evidence at a leaf.
+
+Interpretation: playing a position, the collapse accounting
+
+The decision layer chooses when to commit. This reading is about what one move costs, learned from playing. Four laws, each an axis worn in a contest:
+
+- Felt uncertainty is an entropy meter, not a verdict meter. Mid-contest dread measures how many ways the position could still go, not which way it goes. A pure context, where the label is effectively fixed by the matchup, feels calm or hopeless and is. A collision context, where both labels are live, feels like losing even while winning. The feeling is calibrated for the volume of the thread, never its direction. In pure contexts the structure decides; in collisions the structure is exhausted, and the leaf's majority decides.
+
+- Outcomes key on coverage, not drama. Attention binds to the opponent's most salient threat, but the label is set by the coverage table: which of your answers touch which of their threats. The one-question audit is whether their big thing can touch my answers to it. Salience is a property of the threat; coverage is a property of the pair, and only pairs route.
+
+- A move's measure is its net collapse. Playing a piece collapses three things at once. The resource: spending the conserved charge breaks the affordability symmetry, and the bank is how undecided you are allowed to remain. The availability: the piece is out of rotation until it returns. The information: the opponent's map updates, so a play is also a publication. Net collapse is what they lost minus what you lost. A good move is one whose net collapse is positive; a strong piece spent on a weak target collapses you for nothing.
+
+- A wrong prior mis-prunes. The expensive failure is a trusted invariant outside its domain: a usually valid rule silently cuts the correct branch before evaluation. The search then feels complete while excluding the answer. The fix is prior repair, not depth. This is the player-level form of the invariance contract: an invariant applied where it does not hold shatters the orbit it usually protects.
+
+The open-set discipline behind all four is closed under composition: the moves genuinely available are the ones no prior breaks, and two open moves whose combination breaks something were never both open. Unseen moves are unknown, not free.
+
+Interpretation: symmetry breaking, and sexual dimorphism
+
+The square's symmetry makes its two axes interchangeable. Break that, make the frame a rectangle, and the transpose dies. The axes become incommensurable, two specialised dimensions. A tall box is then depth-first, a wide box breadth-first, and choosing between them is choosing which dimension gets the deep search. The aspect ratio is how lopsided that commitment is: square is agnostic, a thin rectangle means one axis is nearly everything.
+
+Read biologically, this is sexual dimorphism. Isogamy, gametes all one size, is the square: the two roles are interchangeable. Anisogamy, two gamete sizes under disruptive selection, is the rectangle: the population splits into a depth specialist (the egg: few, large, provisioned, which exploits) and a breadth specialist (the sperm: many, small, motile, which explores). That is why the dominant strategy under incommensurable axes is two specialists rather than one compromise.
+
+The honest limit: this is rigorous at the gamete level, where anisogamy really is a depth and breadth bifurcation. Above that it is a just-so story. "Male minds versus female minds" collapses an orbit that a single axis cannot carry.
+
+The covering orders extend the reading. Equal mating types form a regular n-gon, and only the orders 1, 2, 3, 4 and 6 tile a periodic grid. Those are the symmetries the router can route over. Counter-intuitively, more equal sexes means more symmetry, not a stranger one. The non-covering orders, pentagon and beyond, cannot lie flat and periodic; their surplus symmetry escapes into curvature, aperiodicity, or a higher dimension.
+
+Interpretation: classical and quantum, the orbit versus its representative
+
+Classical and quantum are the same bundle read two ways. The bundle is the orbit. Classical collapses it to its canonical representative: least action keeps the one stationary path. That collapse is the fold to the canonical stabilizer, and stationary phase is what performs it. Quantum keeps the whole bundle and lets its elements interfere, summing over paths with phase e^{iS/ħ}. The correspondence principle is the orbit fold, and the isotropy measures how much of the bundle collapses to a point.
+
+The router is the classical shadow. It keeps the orbit as a set, a partition into allowed and forbidden, not a phased sum. There is no phase and no interference. Quantizing it would be one move: attach a phase to each orbit element and sum amplitudes instead of partitioning. Three knobs act on the one frame bundle: conservation fixes a coordinate, relativity chooses the foliation, and classical versus quantum chooses whether to fold the bundle or keep it interfering. Only the fold is in the code.
+
+The symmetry twin earns a physical reading here. A twin shares every group invariant with its oppositely labelled partner and differs only in a discrete sign the algebra cannot derive: a Z₂ charge orthogonal to the geometry, kept as stored evidence at a leaf. That is the classical, decohered residue of a particle–antiparticle pair. Three seams bound the analogy. The operation relating twins is spatial, so it reads as parity before charge conjugation, which is internal. The majority and exception asymmetry has no electron and positron counterpart. And antiparticles originate in the very phase the router drops. The time drive, the T of CPT, is the other missing ingredient.
+
+Interpretation: drive and gate
+
+Split the Turing analogy in two. The law is the drive: the transition rule that advances the state. The label is the gate: 1 advances and lives, 0 halts and dies. A configuration has a lifespan, the number of steps the dynamics keep it landing on 1. The irreducible twins are the death points, the 0s the symmetry algebra cannot smooth over.
+
+As the code stands, the machine is finite and read-only: a read always halts in a fixed number of steps. It is not Turing-complete. Give it a write and unbounded memory, and "how long does it live, will it halt" becomes undecidable.
+
+Interpretation: relativity and the light cone
+
+Push further and time becomes a foliation, not an index. Each observer is a way of slicing the frames into "now" surfaces. Observers reshuffle the order of spacelike frames while agreeing on the timelike ones. Conservation survives the shuffle because a constant is order-independent: the same charge sits on every observer's slice. What transforms between observers is the split. A boost mixes energy and momentum as components of one object, while the invariant the slice measures is shared.
+
+The foliation need not be postulated. Take an ensemble of routers as observers, each fed the same frame stream reordered by propagation delay. The orderings that survive every observer form the causal partial order, and its frontier, the boundary between "all agree before or after" and "observers disagree", is the light cone. The cone is the invariant of the reshuffling. The charges (mass, connectivity, the symmetry verdict) are frame content, not frame order, so every reshuffled observer agrees on them; only the pose is observer-dependent, which is the part a boost mixes.
+
+One ingredient is not given for free. A per-observer delay yields only a causal partial order, which could still be Galilean. The Lorentz cone, with time dilation and boosts, needs the propagation speed to be one invariant for all observers, c. That constraint makes the distance correction unshareable and forces the transformations between observers to be boosts that mix space and time.
+
+Interpretation: change of scale, renormalization
+
+Alongside conservation and relativity there is a third knob on the same frame bundle: change of scale. Coarse-graining a grid, block decimation from side to side over k, is the renormalization-group flow. It is the same fold the descriptor runs, applied per block. Each k×k block collapses to one coarse cell, and the microstates it discards are the degrees of freedom integrated out. The block fold is the classical limit. The quantum move would keep those microstates with a phase and sum amplitudes.
+
+The decimation needs k to divide the side, and that is where the frame's own arithmetic enters. A prime side has no such k except the trivial ones, so a prime frame is scale-rigid: there is no non-trivial coarse-graining at all. The translational action the router quotients away is the cyclic group of the side, whose subgroup lattice is the divisor lattice. Every non-constant orbit has the full size exactly when the side is prime; that is the rigidity test, and it forces Fermat's congruence 2^n ≡ 2 (mod n) as a consequence. The distribution of primes, how scale-rigid sides thin out, is the analytic residual the symmetry points at but does not derive.
+
+The decimation must commute with the group. This is where the classical and quantum conflict is meant to surface, through renormalizability. Feed the coarse grid back to the collision diagnostic across two scales and watch whether the invariant chain closes. A finite fixed point means renormalizable: the classical fold and the quantum fiber reconcile. If each coarse step emits a new blueprint, the flow has unbounded counterterms and is non-renormalizable.
+
+The two-scale loop compares the blueprint, the separating axes the diagnostic emits for separable collisions, and the floor, the count of provable twins. Three verdicts follow. Renormalizable closure: the fold preserved the floor and demanded no new counterterm. Soft non-renormalizability: the floor held, but the coarse scale demands a new reducible counterterm. Hard shattering: the fold turned a separable distinction into a twin, minting new irreducible exceptions and raising the floor, which is information no invariant can recover.
+
+The illustrative case is the path-versus-fork collider scaled to 9×9. A T-tetromino fork and an L-tetromino path share their vertex and edge counts and a trivial canonical stabilizer, so they collide in one separable context with floor 0. Under the k = 3 fold each tetromino crushes to one or two coarse cells, and the reading is hard shattering: the path and fork distinction collapses onto identical coarse shapes, manufacturing irreducible twins. A side of at least 4 is needed, because the 3×3 and 5×5 reference sets are degenerate for k dividing the side.
+
+What is not in the code is the phase sum. The loop would measure the discarded entropy but not sum amplitudes over it, so the conflict would surface as the floor rising rather than as interference.
+
+Interpretation: what the symmetry holds, and the one thing it cannot
+
+The intuitions above reconcile with the machinery at three costs, set by how far each idea sits from the symmetry machinery.
+
+Held by the code now:
+
+- Re-symmetrization gives an undecidable twin. Breaking the transpose (the rectangle, D2) lets a structure collapse to an answer. Restoring it (the square, D4) makes the axes transpose-equivalent, a twin, which is undecidable. Decidability is a function of the broken symmetry.
+- Pose versus invariant. The shape's pose is separate from the descriptor, which is the invariant. The invariance contract is why the structural read is robust: a non-invariant perturbation is discarded by contract.
+- The residual as an unhoused scalar. The stored evidence at a leaf holds what no group-invariant can resolve. Any external scalar with no structural home is a residual of the same kind.
+- The diagnostic is the expert. The collision diagnostic relocates a collision from underdetermination down to the irreducible twin floor, and names the separating axis where one exists.
+
+Held only at a different order. The triad, three as the minimal closure (one is the null, two is an unstable duality, three is the first closed structure), is a ternary symmetry rather than D2. It needs a triangular lattice to be runnable. The middle term, the preserver, is the order-3 fixed locus: remove it and the closure degenerates to a line.
+
+Not held by any group: the framework's own residual. The null, indifference, the collapse to zero. No group element represents it, because a symmetry group is a set of invertible bijections and nothing maps to nothing. The null is the universal fixed point, fixed by every transform because it is the absence of the object the group acts on, so it lies outside every orbit. The code contains it only as degenerate cases: the empty grid, an unseen key answered as unknown, the trivial stabilizer. It can be labelled but never enacted. It is the concept of non-collapse: the opposite of love is not hate, a flip, but absence, indifference, the zero.
+
+Caveat: what the code actually does
+
+The implementation has the spatial groups (D4 on the square, D2 on a rectangle, D6 on hex when the caller declares it) and a plain frame index. It has the descriptor and its invariance, the trie, the extrapolation settings, slices with their counts, the stand-ins, the guess method, the collision diagnostic and the stored evidence at leaves. It has no metric, no light cone, no foliation, no entropy dynamics, no fiber counting function, no determinant volumes, no utility or stopping rule, no renormalization, no phase, no write-back, and no ensemble of observers. The sections headed Interpretation describe those as readings; they are not implemented.
+
+Realising the relativistic extension would mean the ensemble construction: many routers fed delay-reordered frames, an invariant c shared across them, and a group that includes boosts, mixing the space and time axes. The slice-and-find-the-constant logic would not change. The causal structure is what is fixed under the boosted group, the same stabilizer and orbit machinery that routes a shape under D4. Only the group is larger.

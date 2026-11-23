@@ -9,3 +9,6 @@
  * about the router, the router knows nothing about the CLI.
  */
 package org.tervel.plexus.cli;
+
+import org.tervel.plexus.descriptor.*;
+import org.tervel.plexus.router.*;
