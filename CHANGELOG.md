@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (after v2.0.0)
+## 2.0.2
 
 A review of the design and code. Breaking changes are marked **Breaking**.
 
@@ -37,35 +37,21 @@ A review of the design and code. Breaking changes are marked **Breaking**.
   file format. The lattices and tolerance are not in the file, so the caller supplies them on load.
 - A noise tolerance: `new Plexus(rows, cols, lattices, tolerance)`. A node stands in for an unseen grid while its
   minority label is within `tolerance` of its evidence. The default, `0`, is exact purity, as before.
-- `Repeat` and `Periods` constants are named and documented; `docs/06-engine.md` lists them.
-- The interpreter's `[r]` command reports how a typed grid repeats.
 - `Context` has `splitsOn` and `queryValue`: the level an answer was decided on, and the query's value there. Breaking for anyone who builds a `Context` by hand.
 
 ### Fixed
 
 - Stand-ins and unseen placements: a grid is answered only from a leaf or stand-in that holds its shape.
-- `Repeat` returned steps that are not exact periods on exactly periodic grids.
-- `Repeat` chose the lattice by how exact a shift was, so one stray cell changed the basis in about a third of runs on
-  a 5×5 tile. It now scores each lattice by how much of the grid it explains (see the class description). A flipped
-  cell or two no longer changes the basis of a tiling or a checkerboard.
-- `Repeat` returned a half period on a tiling whose two halves differ in one cell; the true period is now returned.
 - `Slice.exhaustive(true)` reads every grid that passes the query's constraints, so a slice on a frame of up to 30 cells
   lists every grid a read answers. Off by default.
 - A slice on a frame of up to 16 cells lists every grid a read answers with its label and constraints, once each. It
   reads the whole frame to find them. Larger frames are not covered yet: see [Slices](docs/04-slices.md).
 - A trained grid's evidence key is a copy of the grid, so changing the caller's array after training no longer
   corrupts the model.
-- `Repeat` answered a board with an opened patch at some positions with a far shift instead of the every-cell repeat.
-  It now answers the every-cell repeat wherever the patch sits.
 - `Descriptor.equals` ignored the canonical shape and the frame.
-- `Frame` accepted transposing moves on non-square frames.
-- `Grid.of` allocated a slot per cell up front; a 20,000×20,000 grid ran out of memory before any read.
-- `Grid.relabel` returned a new grid even when nothing changed.
-- `Grid`'s oracle memo is safe to share between threads.
-- `Template.covering` listed one physical placement once per pose.
 - Slice generation was far slower than needed; the report's cases now take seconds, not minutes.
 - Repeated examples are stored once per leaf, with a count.
-- `jitpack.yml` runs the tests.
+- `jitpack.yml` runs the tests, and builds with Maven 3.9.9.
 - A CI workflow (`.github/workflows/ci.yml`) runs `mvn verify` on every push and pull request.
 - The release profile no longer auto-publishes to Maven Central: a release is staged and published by hand.
 - The packaged jar names its main class, so `java -jar` runs the interpreter.

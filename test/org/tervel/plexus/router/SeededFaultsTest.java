@@ -250,7 +250,7 @@ final class SeededFaultsTest {
         assertEquals(List.of(Slice.Evidence.CONFIRMED), evidence);
     }
 
-    // ---- regression pins for the grid engine -----------------------------------------------------
+    // ---- regression pins for the router ---------------------------------------------------------
 
     @Test
     void aSliceOnAnUntrainedRouterIsEmpty() {
