@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.3
+
+The README, changelog and pom version are brought up to date. The code is the same as 2.0.2.
+
 ## 2.0.2
 
 A review of the design and code. Breaking changes are marked **Breaking**.

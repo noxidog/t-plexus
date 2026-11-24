@@ -59,7 +59,7 @@ Maven, from JitPack (the artifact is built from this repository):
 <dependency>
   <groupId>com.github.noxidog</groupId>
   <artifactId>t-plexus</artifactId>
-  <version>v2.0.2</version>
+  <version>v2.0.3</version>
 </dependency>
 ```
 
