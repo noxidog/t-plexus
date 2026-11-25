@@ -60,8 +60,23 @@ A pure node's children record which values were actually seen, and the answer's 
 
 What a trained router answers for grids it never saw, measured on 4×4 frames (measured once with probe programs, which are not part of the test suite):
 
-- **Held-out placements of trained shapes.** A shape trained at a quarter of its placements answers every one of the others under PLACEMENT and above (43,578 of 43,578).
-- **Shapes never trained.** Answered 0 of 5,743 under every setting. A shape has its own path below the shape level, and no stand-in crosses shapes, so an unseen shape is UNSEEN. This is deliberate: an answer for a shape the router has never seen would be borrowed from another shape's label.
-- **Labels that are not a function of the shape** (random labels). Almost every shape is contradicted, so almost every answer is UNSEEN; the router abstains rather than guessing.
+A quarter of all 4×4 placements trained (16,214 grids), `ProbeCoverageSameShape`:
 
-The coverage figures of earlier designs, 40 to 55% on larger frames, came from the time when shapes shared a key. They do not hold now.
+| Held-out grids | Label | NONE | PLACEMENT | SYMMETRY (default) | EVERYTHING |
+|---|---|---|---|---|---|
+| placements of trained shapes (43,578) | mass ≥ 8 | 0 | 43,578, all right | 43,578, all right | 43,578, all right |
+| grids of untrained shapes (5,743) | mass ≥ 8 | 0 | 0 | 6, all right | 135, 126 right |
+| placements of trained shapes (43,578) | random | 0 | 27,802, 13,947 right | 27,802, 13,947 right | 27,802, 13,947 right |
+| grids of untrained shapes (5,743) | random | 0 | 0 | 0 | 43, 21 right |
+
+- **Held-out placements of trained shapes.** Under `PLACEMENT` and above, a shape trained at a quarter of its
+  placements answers every one of the others, and when the label is a function of the shape every answer is right.
+- **Shapes never trained.** Under `NONE` and `PLACEMENT` they are UNSEEN: no placement stand-in crosses shapes. The
+  symmetry and invariant stand-ins sit above the shape level, so they do cross shapes: the default answers an untrained
+  shape whose mass and joins occur under a pure symmetry node, and `EVERYTHING` one whose box alone was trained. Such
+  an answer is borrowed from other shapes' labels; on mass ≥ 8 it is right because the label is a function of mass,
+  which the borrowing keeps, and wrong where the label depends on the coordinate the stand-in skipped.
+- **Labels that are not a function of the shape** (random labels). A shape trained with both labels is contradicted
+  at its shape node, but each placement trained once is pure at its own trailing node, which then stands in for its
+  untrained siblings: 64% of held-out placements are answered, at chance (50% right). The router does not abstain on
+  such labels; it repeats a neighbouring placement's coin.

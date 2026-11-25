@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.4
+
+### Fixed
+
+- A slice delivers a trained grid only if it passes every constraint. A trained grid was filtered only by the levels
+  its path splits on, so `orientation`, `joins`, `pose` and `corner` constraints let through trained grids that fail
+  them.
+- A box with a side of `MAX_SIDE` (4096) packs and unpacks correctly: `render()` showed a 1x4096 box as `2x0`, and
+  `Slice.box(1, 4096)` found nothing.
+- `size()` is synchronized like the other methods that walk the tries, so it is safe beside a training thread.
+
+### Documentation
+
+- README Limits and The Trie's Coverage state what each setting answers for shapes never trained: nothing under `NONE`
+  and `PLACEMENT`, some under `SYMMETRY` (the default) and more under `EVERYTHING`, with measured counts and accuracy,
+  random labels included. `ProbeCoverageSameShape` measures them per setting.
+- The README names `Plexus.guess` as the similarity measure across shapes, and its `[t]` sample shows the shape level.
+- The default lattice is `SQUARE_4` in the `Main` Javadoc and `data/README.md`.
+- The interpretation's "identity and twins" section describes the shape level that separates twins.
+
 ## 2.0.3
 
 The README, changelog and pom version are brought up to date. The code is the same as 2.0.2.

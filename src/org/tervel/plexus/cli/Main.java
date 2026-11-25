@@ -42,7 +42,7 @@ import java.util.Scanner;
  * trained from a file that does not read exactly.
  *
  * <p>{@code --lattice} picks the router's lattices, comma separated: {@code square4}, {@code square8},
- * {@code hex6} (default {@code square4,hex6}). Exactly one square lattice; hex is optional.
+ * {@code hex6} (default {@code square4}). Exactly one square lattice; hex is optional.
  */
 public final class Main {
 

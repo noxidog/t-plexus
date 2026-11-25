@@ -59,7 +59,7 @@ Maven, from JitPack (the artifact is built from this repository):
 <dependency>
   <groupId>com.github.noxidog</groupId>
   <artifactId>t-plexus</artifactId>
-  <version>v2.0.3</version>
+  <version>v2.0.4</version>
 </dependency>
 ```
 
@@ -82,10 +82,11 @@ D4 root  [neg 0, pos 8]
         long-axis mirror=no  [neg 0, pos 8]
           mass=4  [neg 0, pos 8]
             joins=3  [neg 0, pos 8]
-              turned=no  [neg 0, pos 4]
-              ...
-              turned=yes  [neg 0, pos 4]
-              ...
+              shape=#0  [neg 0, pos 8]
+                turned=no  [neg 0, pos 4]
+                ...
+                turned=yes  [neg 0, pos 4]
+                ...
 ```
 
 **You choose how far it extrapolates.** On the same data, `[4]` with the L `xxx/x..` (same box, mass and joins as the T, but no mirror):
@@ -114,9 +115,14 @@ Stated plainly, from what the code and the measurements show:
 
 - **Binary cells.** Each cell is 0 or 1. Other values are refused, not read as shades.
 - **One shape per grid.** A grid's filled cells, and their bounding box, are one shape. Two objects in one frame are read as one.
-- **Exact shapes.** A shape with one cell changed is a new shape. Noise is not tolerated, and the router has no
-  similarity measure across shapes.
-- **Untrained shapes are unanswered.** A shape never seen answers UNSEEN; a seen shape answers its placements it was not trained at. [Coverage](docs/02-trie.md) has the measured figures.
+- **Exact shapes.** A shape with one cell changed is a new shape. Noise is not tolerated, and `read()` has no
+  similarity measure across shapes. `Plexus.guess(grid)` has one: the trained grids that differ from it in the fewest
+  cells after the best of the square's eight motions, and their majority label.
+- **Untrained shapes are answered only above `PLACEMENT`.** Under `NONE` and `PLACEMENT` a shape never trained answers
+  UNSEEN, and a trained shape answers its placements it was not trained at. The default, `SYMMETRY`, also answers an
+  untrained shape from a pure node above the shape level (the L above, from the T's), and `EVERYTHING` answers more;
+  such an answer is ASSUMED, and nothing says the coordinate it skipped does not matter to the label. `score()` reads
+  under the default. [Coverage](docs/02-trie.md) has the measured figures.
 - **Labels are what the data says.** A contradiction with equal evidence abstains, and a router keeps every distinct
   training grid, so memory grows with the data (about 1.6 kB per 6×6 example).
 - **Frames.** Each side is at most 4096 cells, and a frame's cell count must fit an int.

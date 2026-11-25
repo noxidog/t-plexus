@@ -47,7 +47,7 @@ The descriptor is unchanged by the frame's own motions. The tests check this exh
 
 ## Code: identity and twins
 
-Two grids have the same key when they are the same shape up to the group, in the same frame. For trained shapes the key is exact: every trained grid reads back its own label. Two different shapes can share every invariant answer. The router then keeps both under one key, and it cannot separate them without a finer level. Those are the twins. `Plexus.diagnose()` lists the junctions where a shape and another shape meet without a separating level.
+Two grids have the same key when they are the same shape up to the group, in the same frame. For trained shapes the key is exact: every trained grid reads back its own label. Two different shapes can share every invariant answer, box, symmetry, mass and joins; those are the twins. The shape level below the invariants separates them, so twins share a path down to the joins and part at their shape: no two shapes share a key. `Plexus.diagnose()` lists the mixed nodes and what resolves them.
 
 A grid with no filled cells is kind `EMPTY`. A grid the router has no answer for reads `UNSEEN`, and `score()` returns −1 for it.
 

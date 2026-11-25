@@ -157,10 +157,13 @@ public final class Plexus {
     // ---- training -----------------------------------------------------------------------------------
 
     /**
-     * The largest side a frame may have. Keys pack a row or column count into 4096 places, so a wider frame would
-     * alias two different shapes onto one key.
+     * The largest side a frame may have. A box key packs its two sides, each 1 to MAX_SIDE, in {@link #BOX_RADIX}
+     * places, and a corner key packs a row and a column, each 0 to MAX_SIDE - 1, in MAX_SIDE places.
      */
     public static final int MAX_SIDE = 4096;
+
+    /** The radix a box key packs its sides in: a side runs 1 to {@link #MAX_SIDE}, so it needs one place more. */
+    static final long BOX_RADIX = MAX_SIDE + 1L;
 
     static void checkFrame(int rows, int cols) {
         if (rows < 1 || cols < 1 || rows > MAX_SIDE || cols > MAX_SIDE)
@@ -376,7 +379,7 @@ public final class Plexus {
      */
     private long value(Coordinate c, Descriptor d, boolean intern) {
         return switch (c.level()) {
-            case BOX -> d.kind() == Kind.EMPTY ? 0 : d.boxShort() * 4096L + d.boxLong();
+            case BOX -> d.kind() == Kind.EMPTY ? 0 : d.boxShort() * BOX_RADIX + d.boxLong();
             case SYMMETRY -> d.answers()[c.index()] ? 1 : 0;
             case MASS -> d.mass();
             case JOINS -> d.joins();
@@ -535,7 +538,7 @@ public final class Plexus {
         final var v = n.value;
         return switch (c.level()) {
             case BOX -> new Context.Step(Level.BOX, "box", v, n.kind == Kind.EMPTY ? "empty"
-                    : n.kind == Kind.HEX ? "hex " + (v % 4096) : (v / 4096) + "x" + (v % 4096));
+                    : n.kind == Kind.HEX ? "hex " + (v % BOX_RADIX) : (v / BOX_RADIX) + "x" + (v % BOX_RADIX));
             case SYMMETRY -> new Context.Step(Level.SYMMETRY, Groups.walkFor(n.kind).get(c.index()).name(), v, v == 1 ? "yes" : "no");
             case MASS -> new Context.Step(Level.MASS, "mass", v, Long.toString(v));
             case JOINS -> new Context.Step(Level.JOINS, "joins", v, Long.toString(v));
@@ -673,6 +676,7 @@ public final class Plexus {
                 seen.add(key);                                    // a stored grid is never generated again, whatever its label
                 final var label = resolve(node, m.grid());
                 if (label < 0 || (q.label != null && q.label != label)) continue;   // a contradiction gives no verdict
+                if (!q.admits(describe(m.grid()))) continue;      // the path's edges test only the levels it splits on
                 tally[0]++;
                 cb.accept(m.grid().clone(), ctx, Slice.Evidence.CONFIRMED);
             }
@@ -690,7 +694,7 @@ public final class Plexus {
     private boolean passes(Node node, long v, Node child, Slice q) {
         return switch (node.splitOn.level()) {
             case BOX -> {
-                if (q.boxShort != null && (v / 4096 != q.boxShort || v % 4096 != q.boxLong)) yield false;
+                if (q.boxShort != null && (v / BOX_RADIX != q.boxShort || v % BOX_RADIX != q.boxLong)) yield false;
                 if (child.kind == Kind.EMPTY) yield q.required.isEmpty() && q.massMin == 0;
                 final var names = Groups.walkFor(child.kind).stream().map(CellSet.Map::name).toList();
                 yield names.containsAll(q.required);
@@ -761,7 +765,7 @@ public final class Plexus {
         while (box.edge == null || box.edge.level() != Level.BOX) box = box.parent;
         final var kind = box.kind;
         if (kind == Kind.EMPTY) return Set.of();
-        final int h = (int) (box.value / 4096), w = (int) (box.value % 4096);
+        final int h = (int) (box.value / BOX_RADIX), w = (int) (box.value % BOX_RADIX);
         final var yes = new ArrayList<Integer>();
         for (var n = node; n != box.parent; n = n.parent)
             if (n.edge != null && n.edge.level() == Level.SYMMETRY && n.value == 1) yes.add(n.edge.index());
@@ -970,7 +974,7 @@ public final class Plexus {
     }
 
     /** Nodes in both tries (roots included). */
-    public int size() { return count(d4) + count(d6); }
+    public synchronized int size() { return count(d4) + count(d6); }
 
     private static int count(Node n) {
         var k = 1;
